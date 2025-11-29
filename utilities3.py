@@ -1,12 +1,10 @@
 import torch
 import numpy as np
-import scipy.io
 import h5py
 import torch.nn as nn
 
 import operator
 from functools import reduce
-from functools import partial
 
 #################################################
 #
@@ -32,6 +30,7 @@ class MatReader(object):
 
     def _load_file(self):
         try:
+            import scipy.io
             self.data = scipy.io.loadmat(self.file_path)
             self.old_mat = True
         except:

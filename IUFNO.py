@@ -6,15 +6,15 @@ implicit U-Net enhanced Fourier Neural Operator
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms
+#from torchvision import transforms
 import matplotlib.pyplot as plt
 from utilities3 import *
 #import operator
-from functools import reduce
+#from functools import reduce
 from functools import partial
 from timeit import default_timer
-import scipy.io
-import os
+#import scipy.io
+#import os
 
 torch.manual_seed(123)
 np.random.seed(123)
