@@ -24,6 +24,11 @@ np.random.seed(123)
 
 import pytorch_lightning as L
 
+class _RealToComplexParam(nn.Module):
+    def forward(self, t):
+        # Expects real tensor with last dimension == 2 (real, imag)
+        return torch.view_as_complex(t)
+
 class SpectralConv4d(nn.Module):
     def __init__(self, in_channels, out_channels, modes1, modes2, modes3, modes4):
         super(SpectralConv4d, self).__init__()
@@ -40,10 +45,17 @@ class SpectralConv4d(nn.Module):
         self.modes4 = min(modes4, 3//2+1)
 
         self.scale = (1 / (in_channels * out_channels))
-        self.weights1 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, self.modes3, self.modes4, dtype=torch.cfloat))
-        self.weights2 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, self.modes3, self.modes4, dtype=torch.cfloat))
-        self.weights3 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, self.modes3, self.modes4, dtype=torch.cfloat))
-        self.weights4 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, self.modes3, self.modes4, dtype=torch.cfloat))
+        # Store parameters as real tensors with an extra complex dimension of size 2
+        real_shape = (in_channels, out_channels, self.modes1, self.modes2, self.modes3, self.modes4, 2)
+        self.weights1 = nn.Parameter(self.scale * torch.randn(*real_shape, dtype=torch.float))
+        self.weights2 = nn.Parameter(self.scale * torch.randn(*real_shape, dtype=torch.float))
+        self.weights3 = nn.Parameter(self.scale * torch.randn(*real_shape, dtype=torch.float))
+        self.weights4 = nn.Parameter(self.scale * torch.randn(*real_shape, dtype=torch.float))
+        # Register parametrizations so these are accessed as complex tensors
+        nn.utils.parametrize.register_parametrization(self, "weights1", _RealToComplexParam(), unsafe=True)
+        nn.utils.parametrize.register_parametrization(self, "weights2", _RealToComplexParam(), unsafe=True)
+        nn.utils.parametrize.register_parametrization(self, "weights3", _RealToComplexParam(), unsafe=True)
+        nn.utils.parametrize.register_parametrization(self, "weights4", _RealToComplexParam(), unsafe=True)
 
     # Complex multiplication
     def compl_mul4d(self, input, weights):
@@ -283,7 +295,7 @@ if __name__ == '__main__':
     ################################################################
     # training and evaluation
     ################################################################
-    model = FNO4d(modes, modes, modes, modes, width, nlayer).to(device)
+    model = IUFNO4d(in_channels=3, out_channels=3, hidden_channels=width, k_modes=[modes, modes, modes], n_layers=nlayer).to(device)
 
 
     print(count_params(model))
