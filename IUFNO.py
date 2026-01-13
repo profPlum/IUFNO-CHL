@@ -119,6 +119,7 @@ class U_net(nn.Module):
                           stride=stride, padding=(kernel_size - 1) // 2)
 
 
+# Confirmed: size_w is the "component dimension" containing u,v,w.
 class FNO4d(nn.Module):
     def __init__(self, modes1, modes2, modes3, modes4, width, nlayer):
         super(FNO4d, self).__init__()
@@ -188,133 +189,130 @@ class FNO4d(nn.Module):
         return torch.cat((gridx, gridy, gridz, gridw), dim=-1).to(device) #
 
 
+if __name__ == "__main__":
+    ########################################################################################
+    # configs
+    ########################################################################################
+    device = torch.device("cuda")
+    #-------------------------------------------------------------------------------
+    #tunning3
+    modes = 8
+    width = 80
+    epochs = 100
+    learning_rate = 0.001
+    weight_decay_value = 1e-11
+    nlayer = 40
+
+    #---------------------------------------------------------------------------------------------
+
+    batch_size = 4
+    scheduler_step = 10
+    scheduler_gamma = 0.5
+
+    print(epochs, learning_rate, scheduler_step, scheduler_gamma)
 
 
-# configs
-################################################################
-
-device = torch.device("cuda")
-#-------------------------------------------------------------------------------
-#tunning3
-modes = 8
-width = 80
-epochs = 100
-learning_rate = 0.001
-weight_decay_value = 1e-11
-nlayer = 40
-
-#---------------------------------------------------------------------------------------------
-
-batch_size = 4
-scheduler_step = 10
-scheduler_gamma = 0.5
-
-print(epochs, learning_rate, scheduler_step, scheduler_gamma)
-
-
-runtime = np.zeros(2, )
-t1 = default_timer()
-
-
-################################################################
-# load data
-################################################################
-
-
-#-------------------------------------------------
-vor_data = np.load('data_chl_re180/data_mave_small.npy') #
-vor_data = vor_data[...,0:3]
-vor_data = vor_data[0:2,...]
-
-
-vor_data = torch.from_numpy(vor_data) #
-print(vor_data.shape)
-
-
-input_list = []
-output_list = []
-
-for j in range(vor_data.shape[0]):
-    for i in range(vor_data.shape[1]-5):
-
-        input_list.append(vor_data[j,i:i+5,...])
-        output_6m5 = (vor_data[j,i+5,...]-vor_data[j,i+4,...])
-        output_list.append(output_6m5)
-
-### switch dimension
-
-input_set = torch.stack(input_list)
-output_set = torch.stack(output_list)
-input_set = input_set.permute(0,2,3,4,5,1)
-
-
-full_set = torch.utils.data.TensorDataset(input_set, output_set)
-train_dataset, test_dataset = torch.utils.data.random_split(full_set, [int(0.8*len(full_set)),
-                                                                       len(full_set)-int(0.8*len(full_set))])
-
-# Data loader
-train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-                                           batch_size=batch_size,
-                                           shuffle=True)
-
-test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
-                                          batch_size=batch_size,
-                                          shuffle=False)
-
-################################################################
-# training and evaluation
-################################################################
-model = FNO4d(modes, modes, modes, modes, width, nlayer).to(device)
-
-
-print(count_params(model))
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay_value)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
-
-mse_train = []
-mse_test = []
-
-
-myloss = LpLoss()
-
-for ep in range(epochs):
-    model.train()
+    runtime = np.zeros(2, )
     t1 = default_timer()
-    for xx, yy in train_loader:
-
-        xx = xx.to(device)
-        yy = yy.to(device)
-        im = model(xx).to(device)
-
-        train_loss = myloss(im.reshape(im.shape[0], -1), yy.reshape(yy.shape[0], -1))
-
-        optimizer.zero_grad()
-        train_loss.backward()
-        optimizer.step()
-    mse_train.append(train_loss.item())
 
 
-    with torch.no_grad():
-        for xx, yy in test_loader:
+    ################################################################
+    # load data
+    ################################################################
+
+
+    # vor=vorticity
+    #-------------------------------------------------
+    # Dwyer: 21x400x32x33x16x4 (groups, time, x, y, z, channels)
+    # channel flow variables are: u,v,w and p. (these components make up the size_w dim)
+    vor_data = np.load('data_chl_re180/data_mave_small.npy') #
+    vor_data = vor_data[...,0:3]
+    vor_data = vor_data[0:2,...]
+
+
+    vor_data = torch.from_numpy(vor_data) #
+    print(vor_data.shape)
+
+
+    input_list = []
+    output_list = []
+
+    for j in range(vor_data.shape[0]):
+        for i in range(vor_data.shape[1]-5):
+
+            input_list.append(vor_data[j,i:i+5,...])
+            output_6m5 = (vor_data[j,i+5,...]-vor_data[j,i+4,...])
+            output_list.append(output_6m5)
+
+    ### switch dimension
+
+    input_set = torch.stack(input_list)
+    output_set = torch.stack(output_list)
+    input_set = input_set.permute(0,2,3,4,5,1)
+
+
+    full_set = torch.utils.data.TensorDataset(input_set, output_set)
+    train_dataset, test_dataset = torch.utils.data.random_split(full_set, [int(0.8*len(full_set)),
+                                                                        len(full_set)-int(0.8*len(full_set))])
+
+    # Data loader
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
+                                            batch_size=batch_size,
+                                            shuffle=True)
+
+    test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+                                            batch_size=batch_size,
+                                            shuffle=False)
+
+    ################################################################
+    # training and evaluation
+    ################################################################
+    model = FNO4d(modes, modes, modes, modes, width, nlayer).to(device)
+
+
+    print(count_params(model))
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay_value)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step, gamma=scheduler_gamma)
+
+    mse_train = []
+    mse_test = []
+
+
+    myloss = LpLoss()
+
+    for ep in range(epochs):
+        model.train()
+        t1 = default_timer()
+        for xx, yy in train_loader:
+
             xx = xx.to(device)
             yy = yy.to(device)
-
             im = model(xx).to(device)
-            test_loss = myloss(im.reshape(im.shape[0], -1), yy.reshape(yy.shape[0], -1))
-        mse_test.append(test_loss.item())
 
-    t2 = default_timer()
+            train_loss = myloss(im.reshape(im.shape[0], -1), yy.reshape(yy.shape[0], -1))
 
-
-    print(ep, "%.2f" % (t2 - t1), 'train_loss: {:.4f}'.format(train_loss.item()),
-          'test_loss: {:.4f}'.format(test_loss.item()))
-
-MSE_save=np.dstack((mse_train,mse_test)).squeeze()
-np.savetxt('./loss_IUFNO.dat',MSE_save,fmt="%16.7f")
-
-torch.save(model.state_dict(), 'weights_IUFNO.pth')
+            optimizer.zero_grad()
+            train_loss.backward()
+            optimizer.step()
+        mse_train.append(train_loss.item())
 
 
+        with torch.no_grad():
+            for xx, yy in test_loader:
+                xx = xx.to(device)
+                yy = yy.to(device)
+
+                im = model(xx).to(device)
+                test_loss = myloss(im.reshape(im.shape[0], -1), yy.reshape(yy.shape[0], -1))
+            mse_test.append(test_loss.item())
+
+        t2 = default_timer()
 
 
+        print(ep, "%.2f" % (t2 - t1), 'train_loss: {:.4f}'.format(train_loss.item()),
+            'test_loss: {:.4f}'.format(test_loss.item()))
 
+    MSE_save=np.dstack((mse_train,mse_test)).squeeze()
+    np.savetxt('./loss_IUFNO.dat',MSE_save,fmt="%16.7f")
+
+    torch.save(model.state_dict(), 'weights_IUFNO.pth')
