@@ -190,15 +190,17 @@ class FNO4d(nn.Module):
 
 
 if __name__ == "__main__":
+    import utils
     ########################################################################################
     # configs
     ########################################################################################
     device = torch.device("cuda")
     #-------------------------------------------------------------------------------
+    epoch_multiplier=12
     #tunning3
     modes = 8
     width = 80
-    epochs = 100
+    epochs = 100*epoch_multiplier
     learning_rate = 0.001
     weight_decay_value = 1e-11
     nlayer = 40
@@ -206,7 +208,7 @@ if __name__ == "__main__":
     #---------------------------------------------------------------------------------------------
 
     batch_size = 4
-    scheduler_step = 10
+    scheduler_step = 10*epoch_multiplier
     scheduler_gamma = 0.5
 
     print(epochs, learning_rate, scheduler_step, scheduler_gamma)
@@ -221,6 +223,7 @@ if __name__ == "__main__":
     ################################################################
 
 
+    utils.check_point('loading dataset')
     # vor=vorticity
     #-------------------------------------------------
     # Dwyer: 21x400x32x33x16x4 (groups, time, x, y, z, channels)
@@ -237,6 +240,7 @@ if __name__ == "__main__":
     input_list = []
     output_list = []
 
+    utils.check_point('creating dataset')
     for j in range(vor_data.shape[0]):
         for i in range(vor_data.shape[1]-5):
 
@@ -246,6 +250,7 @@ if __name__ == "__main__":
 
     ### switch dimension
 
+    utils.check_point('processing dataset')
     input_set = torch.stack(input_list)
     output_set = torch.stack(output_list)
     input_set = input_set.permute(0,2,3,4,5,1)
@@ -258,7 +263,8 @@ if __name__ == "__main__":
     # Data loader
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             batch_size=batch_size,
-                                            shuffle=True)
+                                            shuffle=True,
+                                            drop_last=True)
 
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=batch_size,
@@ -277,12 +283,16 @@ if __name__ == "__main__":
     mse_train = []
     mse_test = []
 
-
     myloss = LpLoss()
 
+    utils.check_point('starting training')
+    input_set = torch.stack(input_list)
+    from tqdm import tqdm
     for ep in range(epochs):
+        utils.nvidia_smi()
         model.train()
         t1 = default_timer()
+
         for xx, yy in train_loader:
 
             xx = xx.to(device)
@@ -310,7 +320,7 @@ if __name__ == "__main__":
 
 
         print(ep, "%.2f" % (t2 - t1), 'train_loss: {:.4f}'.format(train_loss.item()),
-            'test_loss: {:.4f}'.format(test_loss.item()))
+             'test_loss: {:.4f}'.format(test_loss.item()), flush=True)
 
     MSE_save=np.dstack((mse_train,mse_test)).squeeze()
     np.savetxt('./loss_IUFNO.dat',MSE_save,fmt="%16.7f")
