@@ -241,11 +241,10 @@ if __name__ == "__main__":
     output_list = []
 
     utils.check_point('creating dataset')
-    for j in range(vor_data.shape[0]):
-        for i in range(vor_data.shape[1]-5):
-
-            input_list.append(vor_data[j,i:i+5,...])
-            output_6m5 = (vor_data[j,i+5,...]-vor_data[j,i+4,...])
+    for j in range(vor_data.shape[0]): # groups
+        for i in range(vor_data.shape[1]-5): # time
+            input_list.append(vor_data[j,i:i+5,...]) # input: 5 timesteps
+            output_6m5 = (vor_data[j,i+5,...]-vor_data[j,i+4,...]) # output: 1 delta timestep
             output_list.append(output_6m5)
 
     ### switch dimension
@@ -253,7 +252,7 @@ if __name__ == "__main__":
     utils.check_point('processing dataset')
     input_set = torch.stack(input_list)
     output_set = torch.stack(output_list)
-    input_set = input_set.permute(0,2,3,4,5,1)
+    input_set = input_set.permute(0,2,3,4,5,1) # move time to back
 
 
     full_set = torch.utils.data.TensorDataset(input_set, output_set)
