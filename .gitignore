@@ -2,3 +2,5 @@ __pycache__
 *.zip
 data_chl_re180
 *.pth
+*run.ipynb
+.ipynb_checkpoints
