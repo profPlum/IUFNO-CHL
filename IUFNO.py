@@ -196,7 +196,7 @@ if __name__ == "__main__":
     ########################################################################################
     device = torch.device("cuda")
     #-------------------------------------------------------------------------------
-    epoch_multiplier=12
+    epoch_multiplier=10
     #tunning3
     modes = 8
     width = 80
@@ -286,7 +286,6 @@ if __name__ == "__main__":
 
     utils.check_point('starting training')
     input_set = torch.stack(input_list)
-    from tqdm import tqdm
     for ep in range(epochs):
         utils.nvidia_smi()
         model.train()

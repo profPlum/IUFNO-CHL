@@ -6,7 +6,7 @@
 #SBATCH --mem-per-gpu=115GB                  # CPU? RAM per GPU < 1/4 of the total node RAM = 120GB
 #SBATCH --gpus-per-node=1                    # GPUs per task is 1
 #SBATCH --cpus-per-task=72                   # CORES per task for data loaders (72 avail per GPU) (very few really used)
-#SBATCH --time=04:00:00                      # Maximum runtime (HH:MM:SS) (48 hours for WNO-600-epochs)
+#SBATCH --time=1-00:00:00                      # Maximum runtime (HH:MM:SS) (48 hours for WNO-600-epochs)
 #SBATCH --partition=ghx4                     # Partition name
 #SBATCH --account=beoi-dtai-gh
 #SBATCH --job-name=1_flow_thru_IUFNO_long_test
